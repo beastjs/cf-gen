@@ -1,0 +1,17 @@
+{
+  "name": "cf-gen",
+  "type": "module",
+  "scripts": {
+    "cf:codegen": "bun './cf/wrangler codegen'",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  },
+  "dependencies": {
+    "wrangler": "^4.156.0"
+  }
+}
