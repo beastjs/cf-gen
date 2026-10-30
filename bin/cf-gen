@@ -1,0 +1,4 @@
+#!/usr/bin/env bun
+import { runCli } from "../cf/wrangler-codegen.ts";
+
+await runCli();

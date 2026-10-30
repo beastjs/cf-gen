@@ -27,7 +27,7 @@ type Options = {
 };
 type PackageManager = "bun" | "npm" | "pnpm" | "yarn";
 
-const usage = `Usage: bun run cf:codegen [options]
+const usage = `Usage: cf-gen [options]
 
 Generate a Wrangler configuration in the current project.
 
@@ -96,8 +96,26 @@ function isAuthToken(value: unknown): value is AuthToken {
     || (token.type === "api_key" && typeof token.key === "string" && typeof token.email === "string");
 }
 
-async function getAuthToken(projectDir: string): Promise<AuthToken> {
-  const result = await runWrangler(projectDir, ["auth", "token", "--json"]);
+type WranglerRunner = (projectDir: string, args: string[]) => Promise<{
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+}>;
+
+export async function resolveAuthToken(
+  projectDir: string,
+  options: { apiToken?: string; runWrangler?: WranglerRunner } = {},
+): Promise<AuthToken> {
+  const apiToken = (options.apiToken ?? process.env.CLOUDFLARE_API_TOKEN)?.trim();
+  if (apiToken) return { type: "api_token", token: apiToken };
+
+  const runner = options.runWrangler ?? runWrangler;
+  const identity = await runner(projectDir, ["whoami", "--json"]);
+  if (identity.exitCode !== 0) {
+    throw new Error("Cloudflare is not authenticated in Wrangler. Set CLOUDFLARE_API_TOKEN or run `wrangler login`.");
+  }
+
+  const result = await runner(projectDir, ["auth", "token", "--json"]);
   if (result.exitCode !== 0) {
     throw new Error(result.stderr.trim() || "Wrangler has no usable Cloudflare authentication.");
   }
@@ -327,8 +345,8 @@ async function deployKeys(envFileInput: string, configDir: string) {
   if (exitCode !== 0) throw new Error(`Secret upload stopped with exit code ${exitCode}.`);
 }
 
-async function main() {
-  const parsedOptions = parseArgs(process.argv.slice(2));
+async function main(args: string[]) {
+  const parsedOptions = parseArgs(args);
   if (parsedOptions === "help") {
     console.log(usage);
     return;
@@ -342,12 +360,7 @@ async function main() {
   await ensureWrangler(projectDir);
 
   // Wrangler's JSON mode exits non-zero when the current credentials are missing or invalid.
-  const identity = await runWrangler(projectDir, ["whoami", "--json"]);
-  if (identity.exitCode !== 0) {
-    throw new Error("Cloudflare is not authenticated in Wrangler. Run `bunx wrangler login` and try again.");
-  }
-
-  const auth = await getAuthToken(projectDir);
+  const auth = await resolveAuthToken(projectDir);
   const accounts = await listAccounts(auth);
   const hasPrompt = stdin.isTTY && stdout.isTTY;
   const ask = hasPrompt ? createPrompt() : undefined;
@@ -416,10 +429,16 @@ async function main() {
   }
 }
 
-if (import.meta.main) {
-  void main().catch((error) => {
+export async function runCli(args = process.argv.slice(2)) {
+  try {
+    await main(args);
+  } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to generate Wrangler configuration.";
     console.error(message);
     process.exitCode = 1;
-  });
+  }
+}
+
+if (import.meta.main) {
+  void runCli();
 }

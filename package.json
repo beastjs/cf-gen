@@ -1,17 +1,25 @@
 {
-  "name": "cf-gen",
+  "name": "@beastjs/cf-gen",
+  "version": "0.1.1",
+  "description": "CLI for generating Cloudflare Wrangler configuration",
   "type": "module",
+  "bin": {
+    "cf-gen": "./bin/cf-gen"
+  },
+  "files": [
+    "bin",
+    "cf/wrangler-codegen.ts",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "cf:codegen": "bun './cf/wrangler codegen'",
+    "cf:codegen": "bun ./cf/wrangler-codegen.ts",
     "test": "bun test"
   },
   "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^7"
-  },
-  "dependencies": {
+    "@types/bun": "latest",
     "wrangler": "^4.156.0"
   }
 }

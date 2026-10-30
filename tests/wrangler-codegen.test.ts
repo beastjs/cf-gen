@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { generateConfigFile, makeConfig, parseArgs, validateWorkerName } from "../cf/wrangler codegen";
+import { generateConfigFile, makeConfig, parseArgs, resolveAuthToken, validateWorkerName } from "../cf/wrangler-codegen.ts";
 
 let testDir: string;
 
@@ -46,6 +46,53 @@ test("validates Wrangler worker names", () => {
   expect(() => validateWorkerName("shop-api-v2")).not.toThrow();
   expect(() => validateWorkerName("bad_name")).toThrow();
   expect(() => validateWorkerName("-leading-dash")).toThrow();
+});
+
+test("uses CLOUDFLARE_API_TOKEN without calling Wrangler authentication commands", async () => {
+  const previousToken = process.env.CLOUDFLARE_API_TOKEN;
+  const calls: string[][] = [];
+  process.env.CLOUDFLARE_API_TOKEN = " test-api-token ";
+
+  try {
+    const auth = await resolveAuthToken("/project", {
+      runWrangler: async (_projectDir, args) => {
+        calls.push(args);
+        return { stdout: "", stderr: "", exitCode: 0 };
+      },
+    });
+
+    expect(auth).toEqual({ type: "api_token", token: "test-api-token" });
+    expect(calls).toEqual([]);
+  } finally {
+    if (previousToken === undefined) delete process.env.CLOUDFLARE_API_TOKEN;
+    else process.env.CLOUDFLARE_API_TOKEN = previousToken;
+  }
+});
+
+test("checks Wrangler authentication when CLOUDFLARE_API_TOKEN is absent", async () => {
+  const calls: string[][] = [];
+  const auth = await resolveAuthToken("/project", {
+    apiToken: "",
+    runWrangler: async (_projectDir, args) => {
+      calls.push(args);
+      if (args[0] === "whoami") return { stdout: "{}", stderr: "", exitCode: 0 };
+      return {
+        stdout: JSON.stringify({ type: "oauth", token: "wrangler-token" }),
+        stderr: "",
+        exitCode: 0,
+      };
+    },
+  });
+
+  expect(calls).toEqual([["whoami", "--json"], ["auth", "token", "--json"]]);
+  expect(auth).toEqual({ type: "oauth", token: "wrangler-token" });
+});
+
+test("fails the Wrangler auth check when no API token is available", async () => {
+  await expect(resolveAuthToken("/project", {
+    apiToken: "",
+    runWrangler: async () => ({ stdout: "", stderr: "Not logged in", exitCode: 1 }),
+  })).rejects.toThrow("Cloudflare is not authenticated in Wrangler");
 });
 
 test("dry-run reports a plan without creating the config file", async () => {
