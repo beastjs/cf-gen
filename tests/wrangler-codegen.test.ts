@@ -15,6 +15,7 @@ import {
   resolveAuthToken,
   selectAccount,
   todayUtc,
+  validateAccountId,
   validateWorkerName,
   verifyAccount,
 } from "../cf/wrangler-codegen.ts";
@@ -122,6 +123,16 @@ test("validates Wrangler worker names", () => {
   // Cloudflare script names are lowercase and capped at 63 characters.
   expect(() => validateWorkerName("MyWorker")).toThrow("lowercase");
   expect(() => validateWorkerName("a".repeat(64))).toThrow("1-63 characters");
+});
+
+test("validates the shape of a supplied account ID", () => {
+  expect(() => validateAccountId("023e105f4ecef8ad9ca31a8372d0c353")).not.toThrow();
+  expect(() => validateAccountId("abc123")).toThrow("32 hexadecimal characters");
+  expect(() => validateAccountId("")).toThrow();
+  // The guard that matters: an API token pasted into CLOUDFLARE_ACCOUNT_ID would
+  // otherwise be logged and written into wrangler.jsonc in clear text.
+  expect(() => validateAccountId("v1.0-abcdef1234567890_not-an-account-id")).toThrow("not an account ID");
+  expect(() => validateAccountId("023e105f4ecef8ad9ca31a8372d0c353extra")).toThrow();
 });
 
 test("suggests a worker name that its own validator accepts", () => {

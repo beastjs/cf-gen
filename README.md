@@ -10,7 +10,7 @@ Interactive CLI for generating a Cloudflare Workers `wrangler.jsonc` configurati
 
 The CLI uses `CLOUDFLARE_API_TOKEN` directly when it is set. Otherwise, it starts the account lookup without credentials. Only if Cloudflare rejects that request as unauthenticated does it load saved Wrangler credentials or start `wrangler login`. If the target project does not have Wrangler installed, `cf-gen` adds the latest Wrangler as a development dependency using the package manager selected by the project.
 
-Some API tokens cannot list account memberships. In that case, provide the account ID with `--account <id>` or `CLOUDFLARE_ACCOUNT_ID`; an interactive run will prompt for the ID if account listing returns HTTP 403. A supplied account ID is confirmed against Cloudflare when the credential can read account details, so a typo is caught before the config is written.
+Some API tokens cannot list account memberships. In that case, provide the account ID with `--account <id>` or `CLOUDFLARE_ACCOUNT_ID`; an interactive run will prompt for the ID if account listing returns HTTP 403. A supplied account ID must be 32 hexadecimal characters, and is confirmed against Cloudflare when the credential can read account details, so a typo — or an API token pasted into `CLOUDFLARE_ACCOUNT_ID` — is caught before anything is printed or written.
 
 ## Install
 
@@ -38,7 +38,7 @@ cf-gen --deploy-keys --env-file ./.env --secret-script ./scripts/secret-put.ts
 ## Options
 
 ```text
---account <id>       Select an account by ID
+--account <id>       Select an account by ID (32 hex characters)
 --name <name>        Worker name (1-63 lowercase letters, numbers, dashes)
 --main <path>        Worker entrypoint
 --output <path>      Output wrangler.jsonc path

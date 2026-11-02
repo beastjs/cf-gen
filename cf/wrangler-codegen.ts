@@ -390,6 +390,17 @@ async function defaultEntrypoint(projectDir: string) {
   return "./src/index.ts";
 }
 
+/**
+ * Cloudflare account IDs are 32 hexadecimal characters. Checking the shape keeps an
+ * API token pasted into CLOUDFLARE_ACCOUNT_ID from being printed and written into
+ * wrangler.jsonc, which projects commit.
+ */
+export function validateAccountId(id: string) {
+  if (!/^[0-9a-f]{32}$/i.test(id)) {
+    throw new Error("A Cloudflare account ID is 32 hexadecimal characters. Check --account or CLOUDFLARE_ACCOUNT_ID — an API token is not an account ID.");
+  }
+}
+
 export function validateWorkerName(name: string) {
   if (name.length > maxWorkerNameLength || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(name)) {
     throw new Error(`Worker name must be 1-${maxWorkerNameLength} characters of lowercase letters, numbers, and dashes, and cannot start or end with a dash.`);
@@ -438,7 +449,9 @@ async function deploySecrets(envFileInput: string, configDir: string, scriptOpti
     const script = resolve(process.cwd(), scriptOverride);
     if (!(await Bun.file(script).exists())) throw new Error(`Secret uploader not found: ${script}`);
 
-    console.log(`\nStarting ${script} for ${envFile}...`);
+    // Name the setting rather than echoing its value, which came from the environment.
+    const source = scriptOption ? "--secret-script" : "CF_GEN_SECRET_SCRIPT";
+    console.log(`\nStarting the secret uploader from ${source} for ${envFile}...`);
     const child = Bun.spawn([process.execPath, script, envFile], {
       cwd: configDir,
       stdin: "inherit",
@@ -481,6 +494,7 @@ async function main(args: string[]) {
 
     if (configuredAccountId) {
       // A known account ID avoids the Memberships Read permission needed for account discovery.
+      validateAccountId(configuredAccountId);
       const verified = await verifyAccount(configuredAccountId, auth);
       accounts = [verified ?? { id: configuredAccountId, name: configuredAccountId }];
     } else {
@@ -525,6 +539,7 @@ async function main(args: string[]) {
         console.log("This token cannot list account memberships. You can enter the account ID directly.");
         const accountId = (await ask("Cloudflare account ID: ")).trim();
         if (!accountId) throw new Error("An account ID is required when account membership listing is unavailable.");
+        validateAccountId(accountId);
         selectedAccountId = accountId;
         const verified = await verifyAccount(accountId, auth);
         accounts = [verified ?? { id: accountId, name: accountId }];
