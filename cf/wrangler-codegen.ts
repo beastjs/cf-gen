@@ -378,9 +378,22 @@ export async function selectAccount(accounts: Account[], requestedId: string | u
   }
 }
 
+/**
+ * Strips leading and trailing dashes in one linear pass. `/^-+|-+$/g` reads more
+ * naturally but is quadratic: `-+$` is unanchored at the start, so an interior run
+ * of dashes is retried from every position in the run.
+ */
+function trimDashes(value: string) {
+  let start = 0;
+  let end = value.length;
+  while (start < end && value[start] === "-") start += 1;
+  while (end > start && value[end - 1] === "-") end -= 1;
+  return value.slice(start, end);
+}
+
 export function defaultWorkerName(projectDir: string) {
-  const slug = basename(projectDir).toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
-  return (slug || "my-worker").slice(0, maxWorkerNameLength).replace(/-+$/g, "") || "my-worker";
+  const slug = trimDashes(basename(projectDir).toLowerCase().replace(/[^a-z0-9-]+/g, "-"));
+  return trimDashes(slug.slice(0, maxWorkerNameLength)) || "my-worker";
 }
 
 async function defaultEntrypoint(projectDir: string) {

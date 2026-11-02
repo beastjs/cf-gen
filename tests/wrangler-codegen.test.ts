@@ -136,9 +136,27 @@ test("validates the shape of a supplied account ID", () => {
 });
 
 test("suggests a worker name that its own validator accepts", () => {
-  for (const dir of ["/tmp/My Shop API", "/tmp/___", `/tmp/${"x".repeat(80)}`, "/tmp/-weird-"]) {
+  const dirs = [
+    "/tmp/My Shop API",
+    "/tmp/___",
+    `/tmp/${"x".repeat(80)}`,
+    "/tmp/-weird-",
+    "/tmp/---",
+    "/tmp/a--b",
+    `/tmp/${"ab-".repeat(30)}`,
+    `/tmp/${"a".repeat(62)}-bc`,
+  ];
+  for (const dir of dirs) {
     expect(() => validateWorkerName(defaultWorkerName(dir))).not.toThrow();
   }
+});
+
+test("names a directory with a long interior dash run in linear time", () => {
+  // `/^-+|-+$/g` was quadratic here: -+$ is unanchored at the start, so an
+  // interior dash run is retried from every position in the run.
+  const started = Bun.nanoseconds();
+  expect(defaultWorkerName(`/tmp/a${"-".repeat(80_000)}b`)).toBe("a");
+  expect((Bun.nanoseconds() - started) / 1e6).toBeLessThan(250);
 });
 
 test("uses CLOUDFLARE_API_TOKEN directly without checking authentication", () => {
